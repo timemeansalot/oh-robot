@@ -33,23 +33,79 @@ const messageForNewPRs =
 
 // This adds an event handler that your code will call later. When this event handler is called, it will log the event to the console. Then, it will use GitHub's REST API to add a comment to the pull request that triggered the event.
 async function handlePullRequestOpened({ octokit, payload }) {
-  console.log(
-    `Received a pull request event for #${payload.pull_request.number}`,
-  )
 
   try {
-    await octokit.request(
-      'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
-      {
-        owner: payload.repository.owner.login,
-        repo: payload.repository.name,
-        issue_number: payload.pull_request.number,
-        body: messageForNewPRs,
-        headers: {
-          'x-github-api-version': '2022-11-28',
+
+    console.log('GitHub event triggered')
+
+    // workflow finish actions
+    if (payload.action == 'completed') {
+      console.log('workflow finish')
+      console.log('workflow result: ')
+      console.log(payload.workflow_run.conclusion)
+      
+      const names=payload.workflow_run.name.split('|') 
+      console.log(names)
+
+      // get the origin  comment
+      const origin_comment = await octokit.request(
+        'GET /repos/{owner}/{repo}/issues/comments/{comment_id}',
+        {
+          owner: names[0],
+          repo: names[1],
+          comment_id: parseInt(names[2]),
+          headers: {
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
         },
-      },
-    )
+      )
+      console.log(origin_comment.data)
+
+      // update the origin comment
+      await octokit.request(
+        'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}',
+        {
+          owner: names[0],
+          repo: names[1],
+          comment_id: parseInt(names[2]),
+          body: 'origin_comment: '.concat( origin_comment.data.body, '\n CI-result: ',payload.workflow_run.conclusion, ' @',origin_comment.data.user.login),
+          headers: {
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        },
+      )
+    }
+
+    // issue_comment actions
+    else if (payload.comment.body == 'trigger-ci') {
+      console.log('comment detected and keywords detected ==> triggered ci')
+      const result = await octokit.request(
+        'POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches',
+        {
+          owner: payload.repository.owner.login,
+          repo: payload.repository.name,
+          workflow_id: 'test.yml',
+          ref: 'main',
+          inputs: {
+            // owner: payload.comment.user.login, // wrong owner
+            owner: payload.issue.user.login,
+            repo: payload.repository.name,
+            comment_id: payload.comment.id.toString(), // invalid input type
+            // tags: '1849268462',
+          },
+          // inputs: {
+          //   name: 'Mona the Octocat',
+          //   home: 'San Francisco, CA',
+          // },
+          headers: {
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        },
+      )
+      console.log(result)
+    } else {
+      console.log('comment detected keywords not detected ==> not triggered ci')
+    }
   } catch (error) {
     if (error.response) {
       console.error(
@@ -61,7 +117,11 @@ async function handlePullRequestOpened({ octokit, payload }) {
 }
 
 // This sets up a webhook event listener. When your app receives a webhook event from GitHub with a `X-GitHub-Event` header value of `pull_request` and an `action` payload value of `opened`, it calls the `handlePullRequestOpened` event handler that is defined above.
-app.webhooks.on('pull_request.opened', handlePullRequestOpened)
+app.webhooks.on(
+  ['issue_comment.created', 'workflow_run.completed'],
+  // ['pull_request.opened', 'issues.opened', 'issue_comment.created'],
+  handlePullRequestOpened,
+)
 
 // This logs any errors that occur.
 app.webhooks.onError((error) => {
