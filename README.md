@@ -1,11 +1,23 @@
-- [ ] Usage Notes
-- [ ] Developing Notes
+1. v1.1 basic Github App workflow:
 
-[TOC]
+- issue-comment.created with keyword
+- workflow trigger by Github App API call
+- workflow finish
+- update the origin comment to notify the commenter the workflow result
+
+2. v1.2 Github App workflow which will trigger by PR with keyword
+
+- pull_request.opened with keyword
+- workflow trigger by Github App API call
+- workflow finish
+- create a new comment to notify the commenter the workflow result
+  [TOC]
 
 # 1 How to use our developed flow
 
 Currently, we have provided both <u>Github Workflow</u> and <u>Github Apps</u>, their usage guides are shown belew:
+
+> All the below keyword pattern can be adjusted to our needs.
 
 ## 1.1 Auto-Release Workflow
 
@@ -18,10 +30,17 @@ Currently, we have provided both <u>Github Workflow</u> and <u>Github Apps</u>, 
 ## 1.2 Github App
 
 1. **Purpose**: trigger Github CI <u>in a more flexible way</u>.
-2. **Usage**: On any _Github page_, you can make a comment with some keyword. Once the keyword is detected, a corresponding Github CI will be trigger by this Github App.
-   > For more details of how Github Apps works, you can read the following part.
-3. keyword: use keyword in the following scheme can trigger Githbu CI
-   - On Github Pull Request Page, make comment with keyword of <u>**trigger-ci**</u>
+2. **Usage**: there are 2 ways to trigger a pull_request automation:
+   - create a pull_request, put keyword **trigger-ci** in the pull_request title
+     - create a pull_request with keyword **trigger-ci**
+       ![](https://s2.loli.net/2023/12/12/g9RfM6Cku1cbZyP.png)
+     - the workflow result will be updated by adding a new comment in the pull_request page
+       ![](https://s2.loli.net/2023/12/12/nmf9dLACoZptyMv.png)
+   - in the pull_request page, create a comment with keyword **trigger-ci|src-branch**
+     - create a new comment under the pull_request page with keyword **trigger-ci_dev**, this will do workflow on `dev` branch
+       ![](https://s2.loli.net/2023/12/12/kJG4ZoIi6ROUQmh.png)
+     - the workflow result will be updated by updating the origin comment in the pull_request page
+       ![](https://s2.loli.net/2023/12/12/6Z5YtAMSEiXFB3a.png)
 
 # 2 Developing Notes
 
@@ -74,11 +93,15 @@ There are plenty of guide about Github Workflow, you can start by [this tutorial
 
 1. follow [this guide](https://docs.github.com/en/apps/creating-github-apps/writing-code-for-a-github-app/building-a-github-app-that-responds-to-webhook-events) to Create a github APP, install it to some repo and setup SMEE to pass webhooks.
    `npx smee -u https://smee.io/EBx9uNgHTYVnDIn -t http://localhost:3000/api/webhook`
-2. create a JS server which will perform actions according to the webhooks we get, we have developed a server which could do the following jobs:
+2. install node packages
+   ```bash
+    # npm init --yes
+    npm install octokit
+    npm install dotenv
+    npm install smee-client --save-dev
+   ```
+3. create a JS server which will perform actions according to the webhooks we get, we have developed a server which could do the following jobs:
    `npm start server`
-
-   - trigger a workflow when comment with keyword `trigger-ci` was detected(github app will send all comments to the local server, the server then can analysis if the comment has this keyword).
-   - if a workflow finish, notify the commenter of the result of this workflow
 
 ### 2.3.1 how to connect the github workflow result to the origin comemnt?
 
