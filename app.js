@@ -70,7 +70,7 @@ async function handlePullRequestOpened({ octokit, payload }) {
             comment_id: parseInt(names[2]),
             body: 'origin_comment: '.concat(
               // origin_comment.data.body, //TBD change origin_data strip trigger-ci keyword
-              origin_comment.data.body.replace('trigger-ci','TRIGGERCI'),
+              origin_comment.data.body.replace('trigger-ci', 'TRIGGERCI'),
               '\n CI-result: ',
               payload.workflow_run.conclusion,
               '\n the workflow result page is: ',
@@ -83,7 +83,7 @@ async function handlePullRequestOpened({ octokit, payload }) {
             },
           },
         )
-      } else if(names[3]=='pull_request'){
+      } else if (names[3] == 'pull_request') {
         // workflow is triggered by pull_request -> create a new comment
         await octokit.request(
           'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
@@ -95,7 +95,7 @@ async function handlePullRequestOpened({ octokit, payload }) {
               payload.workflow_run.conclusion,
               '\n the workflow result page is: ',
               payload.workflow_run.html_url,
-              ' @',
+              '\n@',
               names[0],
             ),
             headers: {
@@ -121,7 +121,7 @@ async function handlePullRequestOpened({ octokit, payload }) {
               owner: payload.pull_request.user.login,
               repo: payload.repository.name,
               comment_id: payload.number.toString(), // invalid input type
-              event_type: 'pull_request'
+              event_type: 'pull_request',
             },
             headers: {
               'X-GitHub-Api-Version': '2022-11-28',
@@ -137,18 +137,20 @@ async function handlePullRequestOpened({ octokit, payload }) {
         const src_branch = keyword[0].split('_')[1]
         console.log(src_branch)
         console.log('comment detected and keywords detected ==> triggered ci')
-        const result = await octokit.request(
+        console.log(payload.comment.user.login)
+        await octokit.request(
           'POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches',
           {
-            owner: payload.repository.owner.login,
+            owner: payload.repository.owner.login, // owner of the repo
             repo: payload.repository.name,
             workflow_id: 'test.yml', // target workflow which we want to run
             ref: src_branch, // pull request source branch
             inputs: {
-              owner: payload.issue.user.login,
+              // owner: payload.comment.user.login, // comment creator
+              owner: payload.repository.owner.login, // owner of the repo
               repo: payload.repository.name,
               comment_id: payload.comment.id.toString(), // invalid input type
-              event_type: 'comment'
+              event_type: 'comment',
             },
             headers: {
               'X-GitHub-Api-Version': '2022-11-28',
@@ -169,7 +171,7 @@ async function handlePullRequestOpened({ octokit, payload }) {
 
 // This sets up a webhook event listener. When your app receives a webhook event from GitHub with a `X-GitHub-Event` header value of `pull_request` and an `action` payload value of `opened`, it calls the `handlePullRequestOpened` event handler that is defined above.
 app.webhooks.on(
-  ['issue_comment.created', 'workflow_run.completed','pull_request.opened'],
+  ['issue_comment.created', 'workflow_run.completed', 'pull_request.opened'],
   // ['pull_request.opened', 'issues.opened', 'issue_comment.created'],
   handlePullRequestOpened,
 )
